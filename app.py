@@ -6,7 +6,7 @@ from datetime import datetime
 
 # Page configuration
 st.set_page_config(
-    page_title="Heart Disease Risk Predictor",
+    page_title="Heart Disease Risk Chatbot",
     page_icon="❤️",
     layout="wide"
 )
@@ -18,12 +18,22 @@ st.markdown("""
         font-size: 3rem;
         color: #e74c3c;
         text-align: center;
-        margin-bottom: 2rem;
+        margin-bottom: 1rem;
     }
-    .sub-header {
-        font-size: 1.5rem;
-        color: #34495e;
-        margin-top: 2rem;
+    .chat-message {
+        padding: 1.5rem;
+        border-radius: 10px;
+        margin-bottom: 1rem;
+        display: flex;
+        flex-direction: column;
+    }
+    .bot-message {
+        background-color: #f0f2f6;
+        border-left: 5px solid #1f77b4;
+    }
+    .user-message {
+        background-color: #e8f5e9;
+        border-left: 5px solid #4caf50;
     }
     .risk-high {
         background-color: #ffebee;
@@ -53,16 +63,114 @@ def load_model():
 
 model, scaler = load_model()
 
+# Initialize session state
+if 'conversation_stage' not in st.session_state:
+    st.session_state.conversation_stage = 0
+if 'patient_data' not in st.session_state:
+    st.session_state.patient_data = {}
+if 'chat_history' not in st.session_state:
+    st.session_state.chat_history = []
+if 'show_prediction' not in st.session_state:
+    st.session_state.show_prediction = False
+
+# Define questions
+questions = [
+    {
+        "key": "age",
+        "question": "👋 Hello! I'm your Heart Health Assistant. I'll ask you a few questions to assess your cardiovascular risk.\n\nLet's start: **How old are you?**",
+        "type": "number",
+        "min": 1,
+        "max": 120
+    },
+    {
+        "key": "sex",
+        "question": "Thanks! Next question: **What is your biological sex?**",
+        "type": "select",
+        "options": ["Male", "Female"]
+    },
+    {
+        "key": "chest_pain",
+        "question": "Have you experienced any chest pain? If so, **which type best describes it?**",
+        "type": "select",
+        "options": ["Typical Angina", "Atypical Angina", "Non-Anginal Pain", "Asymptomatic"]
+    },
+    {
+        "key": "bp",
+        "question": "What is your **resting blood pressure** (in mm Hg)?\n\n💡 *Normal is around 120. If you don't know, you can estimate.*",
+        "type": "number",
+        "min": 80,
+        "max": 220
+    },
+    {
+        "key": "cholesterol",
+        "question": "What is your **cholesterol level** (in mg/dl)?\n\n💡 *Normal is around 200. If you don't know, you can estimate.*",
+        "type": "number",
+        "min": 100,
+        "max": 600
+    },
+    {
+        "key": "fasting_bs",
+        "question": "Is your **fasting blood sugar greater than 120 mg/dl?**",
+        "type": "select",
+        "options": ["No", "Yes"]
+    },
+    {
+        "key": "rest_ecg",
+        "question": "What were your **resting ECG results?**\n\n💡 *If you haven't had an ECG, select 'Normal'.*",
+        "type": "select",
+        "options": ["Normal", "ST-T Wave Abnormality", "Left Ventricular Hypertrophy"]
+    },
+    {
+        "key": "max_hr",
+        "question": "What is your **maximum heart rate** achieved during exercise?\n\n💡 *Normal is 150-180 depending on age.*",
+        "type": "number",
+        "min": 60,
+        "max": 220
+    },
+    {
+        "key": "exercise_angina",
+        "question": "Do you experience **chest pain during exercise?**",
+        "type": "select",
+        "options": ["No", "Yes"]
+    },
+    {
+        "key": "st_depression",
+        "question": "What is your **ST depression** value?\n\n💡 *This is from an ECG test. If you don't know, enter 0.*",
+        "type": "number",
+        "min": 0.0,
+        "max": 10.0,
+        "step": 0.1
+    },
+    {
+        "key": "st_slope",
+        "question": "What is the **slope of your ST segment?**\n\n💡 *From ECG. If unsure, select 'Upsloping'.*",
+        "type": "select",
+        "options": ["Upsloping", "Flat", "Downsloping"]
+    },
+    {
+        "key": "num_vessels",
+        "question": "How many **major vessels** (0-3) are colored by fluoroscopy?\n\n💡 *This is from an angiogram. If you haven't had one, select 0.*",
+        "type": "select",
+        "options": [0, 1, 2, 3]
+    },
+    {
+        "key": "thallium",
+        "question": "What were your **thallium stress test** results?\n\n💡 *If you haven't had this test, select 'Normal'.*",
+        "type": "select",
+        "options": ["Normal", "Fixed Defect", "Reversible Defect"]
+    }
+]
+
 # Title
-st.markdown('<h1 class="main-header">❤️ Heart Disease Risk Predictor</h1>', unsafe_allow_html=True)
-st.markdown("### Powered by Machine Learning (Logistic Regression)")
+st.markdown('<h1 class="main-header">❤️ Heart Health Chatbot</h1>', unsafe_allow_html=True)
+st.markdown("### AI-Powered Cardiovascular Risk Assessment")
 st.markdown("---")
 
-# Sidebar - Information
+# Sidebar
 with st.sidebar:
-    st.header("📊 About This App")
+    st.header("📊 About This Chatbot")
     st.info("""
-    This app uses a **Logistic Regression** model trained on cardiovascular health data.
+    This AI chatbot asks you health questions to predict your heart disease risk.
     
     **Model Performance:**
     - Accuracy: 88%
@@ -70,102 +178,136 @@ with st.sidebar:
     - Recall: 86%
     - F1-Score: 87%
     
-    **Created by:** Mercy  
-    **Institution:** Northeastern University  
-    **Program:** MS in Information Systems
-    """)
+    **Progress:** {}/13 questions answered
+    """.format(len(st.session_state.patient_data)))
     
     st.header("⚕️ Disclaimer")
     st.warning("""
     This tool is for educational purposes only. 
     It does NOT replace professional medical advice.
-    Please consult a healthcare provider for proper diagnosis.
+    Please consult a healthcare provider.
     """)
+    
+    if st.button("🔄 Start Over"):
+        st.session_state.conversation_stage = 0
+        st.session_state.patient_data = {}
+        st.session_state.chat_history = []
+        st.session_state.show_prediction = False
+        st.rerun()
 
-# Main input form
-st.markdown('<h2 class="sub-header">Patient Information Form</h2>', unsafe_allow_html=True)
+# Display chat history
+for message in st.session_state.chat_history:
+    if message['role'] == 'bot':
+        st.markdown(f'<div class="chat-message bot-message">🤖 <strong>Health Assistant:</strong><br>{message["content"]}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="chat-message user-message">👤 <strong>You:</strong><br>{message["content"]}</div>', unsafe_allow_html=True)
 
-col1, col2, col3 = st.columns(3)
+# Show current question
+if st.session_state.conversation_stage < len(questions) and not st.session_state.show_prediction:
+    current_q = questions[st.session_state.conversation_stage]
+    
+    # Display bot question
+    st.markdown(f'<div class="chat-message bot-message">🤖 <strong>Health Assistant:</strong><br>{current_q["question"]}</div>', unsafe_allow_html=True)
+    
+    # Get user input
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        if current_q["type"] == "number":
+            user_input = st.number_input(
+                "Your answer:",
+                min_value=current_q["min"],
+                max_value=current_q["max"],
+                step=current_q.get("step", 1),
+                key=f"input_{st.session_state.conversation_stage}"
+            )
+        else:  # select
+            user_input = st.selectbox(
+                "Your answer:",
+                options=current_q["options"],
+                key=f"input_{st.session_state.conversation_stage}"
+            )
+    
+    with col2:
+        st.write("")
+        st.write("")
+        if st.button("Submit ➡️", type="primary", use_container_width=True):
+            # Save to chat history
+            st.session_state.chat_history.append({
+                "role": "bot",
+                "content": current_q["question"]
+            })
+            st.session_state.chat_history.append({
+                "role": "user",
+                "content": str(user_input)
+            })
+            
+            # Save answer
+            st.session_state.patient_data[current_q["key"]] = user_input
+            
+            # Move to next question
+            st.session_state.conversation_stage += 1
+            
+            # Check if we're done
+            if st.session_state.conversation_stage >= len(questions):
+                st.session_state.show_prediction = True
+            
+            st.rerun()
 
-with col1:
-    age = st.number_input("Age (years)", min_value=1, max_value=120, value=50, step=1)
-    sex = st.selectbox("Sex", options=["Male", "Female"])
-    chest_pain = st.selectbox("Chest Pain Type", 
-                               options=["Typical Angina", "Atypical Angina", "Non-Anginal Pain", "Asymptomatic"])
-    bp = st.number_input("Resting Blood Pressure (mm Hg)", min_value=80, max_value=220, value=120, step=1)
-
-with col2:
-    cholesterol = st.number_input("Cholesterol (mg/dl)", min_value=100, max_value=600, value=200, step=1)
-    fasting_bs = st.selectbox("Fasting Blood Sugar > 120 mg/dl", options=["No", "Yes"])
-    rest_ecg = st.selectbox("Resting ECG", 
-                            options=["Normal", "ST-T Wave Abnormality", "Left Ventricular Hypertrophy"])
-    max_hr = st.number_input("Maximum Heart Rate", min_value=60, max_value=220, value=150, step=1)
-
-with col3:
-    exercise_angina = st.selectbox("Exercise Induced Angina", options=["No", "Yes"])
-    st_depression = st.number_input("ST Depression", min_value=0.0, max_value=10.0, value=0.0, step=0.1)
-    st_slope = st.selectbox("ST Slope", options=["Upsloping", "Flat", "Downsloping"])
-    num_vessels = st.selectbox("Number of Major Vessels (0-3)", options=[0, 1, 2, 3])
-    thallium = st.selectbox("Thallium Stress Test", options=["Normal", "Fixed Defect", "Reversible Defect"])
-
-st.markdown("---")
-
-# Predict button
-if st.button("🔍 Predict Heart Disease Risk", type="primary", use_container_width=True):
+# Show prediction if all questions answered
+if st.session_state.show_prediction:
+    st.markdown('<div class="chat-message bot-message">🤖 <strong>Health Assistant:</strong><br>Thank you for answering all the questions! Let me analyze your responses and calculate your heart disease risk...</div>', unsafe_allow_html=True)
+    
+    # Prepare data for prediction
+    data = st.session_state.patient_data
+    
     # Encode categorical variables
-    sex_encoded = 1 if sex == "Male" else 0
-    
+    sex_encoded = 1 if data['sex'] == "Male" else 0
     chest_pain_map = {"Typical Angina": 1, "Atypical Angina": 2, "Non-Anginal Pain": 3, "Asymptomatic": 4}
-    chest_pain_encoded = chest_pain_map[chest_pain]
-    
-    fasting_bs_encoded = 1 if fasting_bs == "Yes" else 0
-    
+    chest_pain_encoded = chest_pain_map[data['chest_pain']]
+    fasting_bs_encoded = 1 if data['fasting_bs'] == "Yes" else 0
     rest_ecg_map = {"Normal": 0, "ST-T Wave Abnormality": 1, "Left Ventricular Hypertrophy": 2}
-    rest_ecg_encoded = rest_ecg_map[rest_ecg]
-    
-    exercise_angina_encoded = 1 if exercise_angina == "Yes" else 0
-    
+    rest_ecg_encoded = rest_ecg_map[data['rest_ecg']]
+    exercise_angina_encoded = 1 if data['exercise_angina'] == "Yes" else 0
     st_slope_map = {"Upsloping": 1, "Flat": 2, "Downsloping": 3}
-    st_slope_encoded = st_slope_map[st_slope]
-    
+    st_slope_encoded = st_slope_map[data['st_slope']]
     thallium_map = {"Normal": 3, "Fixed Defect": 6, "Reversible Defect": 7}
-    thallium_encoded = thallium_map[thallium]
+    thallium_encoded = thallium_map[data['thallium']]
     
-    # Create input array (must match training feature order)
+    # Create input array
     input_data = np.array([[
-        age, sex_encoded, chest_pain_encoded, bp, cholesterol, 
-        fasting_bs_encoded, rest_ecg_encoded, max_hr, 
-        exercise_angina_encoded, st_depression, st_slope_encoded, 
-        num_vessels, thallium_encoded
+        data['age'], sex_encoded, chest_pain_encoded, data['bp'], 
+        data['cholesterol'], fasting_bs_encoded, rest_ecg_encoded, 
+        data['max_hr'], exercise_angina_encoded, data['st_depression'], 
+        st_slope_encoded, data['num_vessels'], thallium_encoded
     ]])
     
-    # Scale the input data
+    # Scale and predict
     input_scaled = scaler.transform(input_data)
-    
-    # Make prediction
     prediction = model.predict(input_scaled)[0]
     probability = model.predict_proba(input_scaled)[0]
     
-    # Display results
     st.markdown("---")
-    st.markdown('<h2 class="sub-header">Prediction Results</h2>', unsafe_allow_html=True)
     
+    # Display results
     col_result1, col_result2 = st.columns(2)
     
     with col_result1:
         if prediction == 1:
             st.markdown('<div class="risk-high">', unsafe_allow_html=True)
-            st.error("### ⚠️ HIGH RISK")
+            st.error("### ⚠️ HIGH RISK DETECTED")
             st.markdown(f"""
             **Risk Probability:** {probability[1]*100:.1f}%
             
-            The model predicts a **high risk** of heart disease.
+            Based on your responses, the AI model predicts a **high risk** of heart disease.
             
-            **Recommended Actions:**
-            - Consult a cardiologist immediately
-            - Schedule comprehensive cardiac evaluation
-            - Discuss lifestyle modifications
-            - Review family history with your doctor
+            **⚠️ Important Next Steps:**
+            - 🏥 **Consult a cardiologist immediately**
+            - 📋 Schedule comprehensive cardiac evaluation
+            - 💊 Discuss lifestyle modifications with your doctor
+            - 👨‍👩‍👧‍👦 Review family history with healthcare provider
+            
+            **This is NOT a diagnosis** - only a medical professional can diagnose heart disease.
             """)
             st.markdown('</div>', unsafe_allow_html=True)
         else:
@@ -174,65 +316,69 @@ if st.button("🔍 Predict Heart Disease Risk", type="primary", use_container_wi
             st.markdown(f"""
             **Risk Probability:** {probability[1]*100:.1f}%
             
-            The model predicts a **low risk** of heart disease.
+            Good news! The AI model predicts a **low risk** of heart disease based on your responses.
             
-            **Recommended Actions:**
-            - Maintain healthy lifestyle habits
-            - Regular check-ups with your doctor
-            - Continue monitoring cardiovascular health
-            - Stay physically active
+            **💚 Recommended Actions:**
+            - 🏃‍♀️ Maintain healthy lifestyle habits
+            - 🩺 Continue regular check-ups with your doctor
+            - 📊 Monitor your cardiovascular health
+            - 💪 Stay physically active
+            
+            Remember to maintain your heart health through diet, exercise, and regular medical check-ups!
             """)
             st.markdown('</div>', unsafe_allow_html=True)
     
     with col_result2:
-        st.markdown("### 📊 Risk Breakdown")
+        st.markdown("### 📊 Risk Analysis")
         st.progress(probability[1])
-        st.metric("Disease Risk", f"{probability[1]*100:.1f}%")
-        st.metric("Healthy Probability", f"{probability[0]*100:.1f}%")
+        st.metric("Disease Risk", f"{probability[1]*100:.1f}%", delta=None)
+        st.metric("Healthy Probability", f"{probability[0]*100:.1f}%", delta=None)
         
-        st.markdown("### 📋 Input Summary")
-        st.write(f"**Age:** {age} years")
-        st.write(f"**Cholesterol:** {cholesterol} mg/dl")
-        st.write(f"**Max Heart Rate:** {max_hr} bpm")
-        st.write(f"**Blood Pressure:** {bp} mm Hg")
+        st.markdown("### 📋 Your Health Summary")
+        st.write(f"**Age:** {data['age']} years")
+        st.write(f"**Sex:** {data['sex']}")
+        st.write(f"**Blood Pressure:** {data['bp']} mm Hg")
+        st.write(f"**Cholesterol:** {data['cholesterol']} mg/dl")
+        st.write(f"**Max Heart Rate:** {data['max_hr']} bpm")
+        st.write(f"**Chest Pain:** {data['chest_pain']}")
     
-    # Download report button
+    # Download report
     st.markdown("---")
     report_data = {
-        "Prediction Date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "Age": age,
-        "Sex": sex,
-        "Chest Pain Type": chest_pain,
-        "Blood Pressure": bp,
-        "Cholesterol": cholesterol,
-        "Fasting Blood Sugar": fasting_bs,
-        "Resting ECG": rest_ecg,
-        "Max Heart Rate": max_hr,
-        "Exercise Angina": exercise_angina,
-        "ST Depression": st_depression,
-        "ST Slope": st_slope,
-        "Number of Vessels": num_vessels,
-        "Thallium": thallium,
+        "Assessment Date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        **st.session_state.patient_data,
         "Prediction": "High Risk" if prediction == 1 else "Low Risk",
-        "Disease Probability": f"{probability[1]*100:.1f}%"
+        "Disease Probability": f"{probability[1]*100:.1f}%",
+        "Healthy Probability": f"{probability[0]*100:.1f}%"
     }
     
     report_df = pd.DataFrame([report_data]).T
     report_df.columns = ["Value"]
-    
     csv = report_df.to_csv()
-    st.download_button(
-        label="📥 Download Report (CSV)",
-        data=csv,
-        file_name=f"heart_disease_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
-        mime="text/csv"
-    )
+    
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        st.download_button(
+            label="📥 Download Full Report (CSV)",
+            data=csv,
+            file_name=f"heart_health_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+    
+    with col_btn2:
+        if st.button("🔄 Start New Assessment", type="primary", use_container_width=True):
+            st.session_state.conversation_stage = 0
+            st.session_state.patient_data = {}
+            st.session_state.chat_history = []
+            st.session_state.show_prediction = False
+            st.rerun()
 
 # Footer
 st.markdown("---")
 st.markdown("""
     <div style='text-align: center; color: #7f8c8d; padding: 20px;'>
-        <p>Heart Disease Risk Predictor | Northeastern University | MS Information Systems</p>
-        <p>Model Accuracy: 88% | Developed using Scikit-learn & Streamlit</p>
+        <p>Heart Disease Risk Chatbot | Northeastern University | MS Information Systems</p>
+        <p>Model Accuracy: 88% | Developed by Mercy Bankole</p>
     </div>
 """, unsafe_allow_html=True)
