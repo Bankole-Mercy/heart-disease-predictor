@@ -14,6 +14,9 @@ st.set_page_config(
 # Custom CSS
 st.markdown("""
     <style>
+    .stApp {
+        background-color: #f5f7fa;
+    }
     .main-header {
         font-size: 3rem;
         color: #e74c3c;
@@ -28,24 +31,28 @@ st.markdown("""
         flex-direction: column;
     }
     .bot-message {
-        background-color: #f0f2f6;
-        border-left: 5px solid #1f77b4;
+        background-color: #e3f2fd;
+        border-left: 5px solid #2196f3;
+        color: #000000;
     }
     .user-message {
-        background-color: #e8f5e9;
+        background-color: #c8e6c9;
         border-left: 5px solid #4caf50;
+        color: #000000;
     }
     .risk-high {
         background-color: #ffebee;
         padding: 20px;
         border-radius: 10px;
         border-left: 5px solid #e74c3c;
+        color: #000000;
     }
     .risk-low {
         background-color: #e8f5e9;
         padding: 20px;
         border-radius: 10px;
         border-left: 5px solid #4caf50;
+        color: #000000;
     }
     </style>
 """, unsafe_allow_html=True)
