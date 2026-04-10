@@ -15,7 +15,13 @@ st.set_page_config(
 st.markdown("""
     <style>
     .stApp {
-        background-color: #f5f7fa;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    .main .block-container {
+        background-color: rgba(255, 255, 255, 0.95);
+        padding: 2rem;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     }
     .main-header {
         font-size: 3rem;
@@ -29,30 +35,37 @@ st.markdown("""
         margin-bottom: 1rem;
         display: flex;
         flex-direction: column;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     .bot-message {
-        background-color: #e3f2fd;
-        border-left: 5px solid #2196f3;
-        color: #000000;
+        background-color: #1e3a5f;
+        border-left: 5px solid #4a90e2;
+        color: #ffffff;
+    }
+    .bot-message strong {
+        color: #4a90e2;
     }
     .user-message {
-        background-color: #c8e6c9;
-        border-left: 5px solid #4caf50;
-        color: #000000;
+        background-color: #2d5016;
+        border-left: 5px solid #66bb6a;
+        color: #ffffff;
+    }
+    .user-message strong {
+        color: #66bb6a;
     }
     .risk-high {
-        background-color: #ffebee;
+        background-color: #8b0000;
         padding: 20px;
         border-radius: 10px;
-        border-left: 5px solid #e74c3c;
-        color: #000000;
+        border-left: 5px solid #ff0000;
+        color: #ffffff;
     }
     .risk-low {
-        background-color: #e8f5e9;
+        background-color: #1b5e20;
         padding: 20px;
         border-radius: 10px;
         border-left: 5px solid #4caf50;
-        color: #000000;
+        color: #ffffff;
     }
     </style>
 """, unsafe_allow_html=True)
