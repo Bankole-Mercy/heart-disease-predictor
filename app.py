@@ -397,7 +397,7 @@ if st.session_state.show_prediction:
 # Footer
 st.markdown("---")
 st.markdown("""
-    <div style='text-align: center; color: #7f8c8d; padding: 20px;'>
+    <div style='text-align: center; color: #ffffff; padding: 20px;'>
         <p>Heart Disease Risk Chatbot | Northeastern University | MS Information Systems</p>
         <p>Model Accuracy: 88% | Developed by Mercy Bankole</p>
     </div>
